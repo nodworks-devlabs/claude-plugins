@@ -252,7 +252,7 @@ const readShared = async ($: $): Promise<Win[]> => {
   return readWindows($, false)
 }
 
-/** With the `debug` option on, appends one line to `events.log` (the last 40 kept). */
+/** With LIMIT_METER_DEBUG=1, appends one line to `events.log` (the last 40 kept). */
 const logEvent = async ($: $, line: string) => {
   if (!mem.isDebug) {
     return
@@ -536,10 +536,10 @@ const peerLine = (p: Peer, rows: Row[]) =>
     .join(' / ')}`
 
 export const register: Register = (on, options) => {
-  mem.isDebug = options.debug === true
   on('session.start', async ($, e, next) => {
     mem.ctx = undefined
     mem.lastActiveAt = await $.clock.now()
+    mem.isDebug = (await $.env.get('LIMIT_METER_DEBUG')) === '1'
     await $.command.register({
       name: 'limit-meter',
       description: 'Size of the limits band: small, medium or high',

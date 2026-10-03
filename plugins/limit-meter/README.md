@@ -51,12 +51,12 @@ It is an estimate:
 ## What it reads, writes and sends
 
 - **Network:** about once a minute, shared by every open chat, one request to `https://api.anthropic.com/api/oauth/usage`, the endpoint Claude Code's own usage view reads. It goes through Claude Code with your session's credential; the plugin never sees the token. This endpoint is not a documented public API and may change; if it fails, limit-meter keeps showing the last good reading for up to 10 minutes, then falls back to the 5-hour and weekly figures Claude Code already has (no per-model limit). The cause of the last failure (an HTTP status, never a response body) is written to `last-error.json`.
-- **Disk:** `~/.claude/limit-meter/` holds one small file per chat (the project path, the first 22 characters of its first prompt as a label, and its credited points), a shared `ledger.json` and a `reading.json` cache. With the **Debug log** setting on, `events.log` records which event credited which limit.
+- **Disk:** `~/.claude/limit-meter/` holds one small file per chat (the project path, the first 22 characters of its first prompt as a label, and its credited points), a shared `ledger.json` and a `reading.json` cache. For troubleshooting, `LIMIT_METER_DEBUG=1` makes it also write `events.log`: which event credited which limit. In the desktop app set it in `~/.claude/settings.json` as `"env": { "LIMIT_METER_DEBUG": "1" }`; in the terminal, in your shell.
 - Nothing else leaves your machine.
 
 ## Known gaps
 
-Not yet checked on: the terminal layout, the IDE extensions, the light theme, the thread list with real threads, narrow windows, and the **Band size** row in the plugin settings (`/limit-meter` is the tested way to switch). Reports welcome.
+Not yet checked on: the terminal layout, the IDE extensions, the light theme, the thread list with real threads, narrow windows. Reports welcome.
 
 ## License
 

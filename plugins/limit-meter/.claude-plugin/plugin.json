@@ -1,6 +1,6 @@
 {
   "name": "limit-meter",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Rings above the prompt for your 5-hour, weekly and per-model limits and the context window, with what this chat, its project and its threads used",
   "author": {
     "name": "Nodworks DevLabs",
@@ -28,12 +28,6 @@
         "high"
       ],
       "default": "medium"
-    },
-    "debug": {
-      "type": "boolean",
-      "title": "Debug log",
-      "description": "Write ~/.claude/limit-meter/events.log: which event credited which window",
-      "default": false
     }
   }
 }
