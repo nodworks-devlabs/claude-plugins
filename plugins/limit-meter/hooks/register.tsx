@@ -17,12 +17,16 @@ type Rec = {
   updatedAt: number
   /** When this chat last took a credit reading; absent before its first. */
   lastCreditAt?: number
+  /** The conversation, kept across a resume that hands it a new session id. */
+  key?: string
+  /** The session that resumed this conversation and took its record over. */
+  supersededBy?: string
 }
 
 /** The last account-wide reading of each window any chat took. */
 type Ledger = Record<string, { pct: number; resetsAt?: string; at: number }>
 
-type Ctx = { dir: string; sid: string; project: string; projectName: string }
+type Ctx = { dir: string; sid: string; key: string; project: string; projectName: string }
 
 const snapshot = atom({ plugin: 'limit-meter', key: 'snapshot' } as const, null)
 const density = atom({ plugin: 'limit-meter', key: 'density' } as const, 'medium')
@@ -97,9 +101,13 @@ const context = async ($: $): Promise<Ctx> => {
   const home = (await $.env.get('HOME')) ?? '~'
   const repo = await $.session.repo().catch(() => null)
   const project = repo?.root ?? (await $.session.root())
+  // The desktop app's own id survives a resume; elsewhere, the first launch does.
+  const host = await $.env.get('CLAUDE_CODE_HOST_SESSION_ID')
+  const key = host ? `host:${host}` : `start:${(await $.session.usage()).startedAt}`
   mem.ctx = {
     dir: `${home}/.claude/limit-meter`,
     sid: await $.session.id(),
+    key,
     project,
     projectName: baseName(project),
   }
@@ -119,6 +127,7 @@ const loadRec = async ($: $): Promise<Rec> => {
 
   return {
     sid: c.sid,
+    key: c.key,
     project: c.project,
     projectName: c.projectName,
     label: '',
@@ -131,7 +140,42 @@ const loadRec = async ($: $): Promise<Rec> => {
 
 const saveRec = async ($: $, rec: Rec) => {
   const c = await context($)
-  await writeJson($, recPath(c), { ...rec, updatedAt: await $.clock.now() })
+  await writeJson($, recPath(c), { ...rec, key: c.key, updatedAt: await $.clock.now() })
+}
+
+/**
+ * A resumed conversation runs under a new session id: take over the record
+ * its earlier session left (points, label, role) and mark that one done.
+ */
+const adoptEarlier = async ($: $) => {
+  const c = await context($)
+  const entries = await $.fs.list(`${c.dir}/sessions`).catch(() => [])
+  for (const f of entries) {
+    if (f.kind !== 'file' || !f.name.endsWith('.json') || f.name === `${c.sid}.json`) {
+      continue
+    }
+    const old = await readJson<Rec>($, `${c.dir}/sessions/${f.name}`)
+    if (!old || old.supersededBy || old.key !== c.key || old.project !== c.project) {
+      continue
+    }
+    const rec = await loadRec($)
+    const used: ChatUse = { ...rec.used }
+    for (const [kind, u] of Object.entries(old.used)) {
+      const mine = used[kind]
+      used[kind] =
+        mine && sameWindow(mine.resetsAt, u.resetsAt)
+          ? { pct: round1(mine.pct + u.pct), resetsAt: mine.resetsAt }
+          : (mine ?? u)
+    }
+    await saveRec($, {
+      ...rec,
+      used,
+      label: old.label || rec.label,
+      role: old.role === 'thread' ? 'thread' : rec.role,
+      lastCreditAt: Math.max(old.lastCreditAt ?? 0, rec.lastCreditAt ?? 0) || undefined,
+    })
+    await writeJson($, `${c.dir}/sessions/${f.name}`, { ...old, supersededBy: c.sid })
+  }
 }
 
 /** The account's windows from the usage endpoint the app's usage card reads. */
@@ -331,7 +375,7 @@ const readPeers = async ($: $, wins: Win[]): Promise<Peer[]> => {
   )
   const peers: Peer[] = []
   for (const rec of recs) {
-    if (!rec || rec.project !== c.project) {
+    if (!rec || rec.project !== c.project || rec.supersededBy || rec.key === c.key) {
       continue
     }
     const used: ChatUse = {}
@@ -557,6 +601,7 @@ export const register: Register = (on, options) => {
       const held = await readJson<Rec>($, recPath(c))
       const isFresh = held !== undefined && (await $.clock.now()) - held.updatedAt < LEDGER_STALE_MS
       await logEvent($, `session.start ${isFresh ? 'reload' : 'new'}`)
+      await adoptEarlier($)
       await refresh($, isFresh ? 'look' : 'absorb', true)
       $.clock.every(FAST_MS, () => void fastTick($))
       $.clock.every(POLL_MS, () => {
@@ -885,24 +930,9 @@ export const register: Register = (on, options) => {
           ),
       })
 
-    return (
-      <Box flexDirection="row" columnGap={2} alignItems="center">
+    const ringRow = (
+      <Box key="rings" flexDirection="row" columnGap={2} alignItems="center">
         {windowCells}
-        {size === 'high' && showPeers && (
-          <Box key="peers" flexDirection="column" flexGrow={1} width={0}>
-            <Text dimColor wrap="truncate-end">
-              {peerTitle}
-            </Text>
-            {peers.map(p => (
-              <Text key={p.sid} dimColor wrap="truncate-end">
-                {peerLine(p, rows)}
-              </Text>
-            ))}
-            {snap.peers.length > peers.length && (
-              <Text dimColor>+{snap.peers.length - peers.length} more</Text>
-            )}
-          </Box>
-        )}
         {contextCell && (
           <Svg
             key="rule"
@@ -913,6 +943,27 @@ export const register: Register = (on, options) => {
           />
         )}
         {contextCell}
+      </Box>
+    )
+    if (size !== 'high' || !showPeers) {
+      return ringRow
+    }
+
+    // The project's other chats go under the rings, so the columns keep their width.
+    return (
+      <Box flexDirection="column" rowGap={1}>
+        {ringRow}
+        <Box flexDirection="row" flexWrap="wrap" columnGap={4}>
+          <Text dimColor>{peerTitle}</Text>
+          {peers.map(p => (
+            <Text key={p.sid} dimColor wrap="truncate-end">
+              {peerLine(p, rows)}
+            </Text>
+          ))}
+          {snap.peers.length > peers.length && (
+            <Text dimColor>+{snap.peers.length - peers.length} more</Text>
+          )}
+        </Box>
       </Box>
     )
   })
