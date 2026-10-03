@@ -36,7 +36,7 @@ Built against Claude Code **2.1.286**. It uses function hooks, which are early a
 
 Switch with `/limit-meter small`, `/limit-meter medium` or `/limit-meter high` (remembered across sessions), or set **Band size** in the plugin's settings.
 
-The desktop app draws rings; the terminal shows the same figures as text.
+The desktop app draws rings; the terminal shows the same figures as an aligned table, sized to the window's width.
 
 ## How "this chat" is counted
 

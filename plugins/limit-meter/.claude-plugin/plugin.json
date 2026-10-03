@@ -1,6 +1,6 @@
 {
   "name": "limit-meter",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Rings above the prompt for your 5-hour, weekly and per-model limits and the context window, with what this chat, its project and its threads used",
   "author": {
     "name": "Nodworks DevLabs",

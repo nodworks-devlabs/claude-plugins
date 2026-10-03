@@ -702,7 +702,7 @@ export const register: Register = (on, options) => {
       // Cells per column; the bar takes what is left, minus room for the [-] control.
       const LABEL = 9
       const PCT = 5
-      const MIDDLE = 12
+      const MIDDLE = 14
       const CHAT = 17
       const PROJECT = 15
       const isWide = columns >= 60
@@ -723,7 +723,9 @@ export const register: Register = (on, options) => {
         return (
           <Box key={id} flexDirection="row">
             <Box width={LABEL}>
-              <Text dimColor>{label}</Text>
+              <Text dimColor wrap="truncate-end">
+                {label}
+              </Text>
             </Box>
             {bar > 0 && (
               <Box width={bar + 1}>
@@ -740,19 +742,31 @@ export const register: Register = (on, options) => {
             </Box>
             {isWide && (
               <Box width={MIDDLE} paddingLeft={3}>
-                <Text dimColor>{middle}</Text>
+                <Text dimColor wrap="truncate-end">
+                  {middle}
+                </Text>
               </Box>
             )}
             <Box width={CHAT} paddingLeft={3}>
               {chat !== undefined ? (
-                <Text color={BLUE}>this chat {pctText(chat)}</Text>
+                <Text color={BLUE} wrap="truncate-end">
+                  this chat {pctText(chat)}
+                </Text>
               ) : (
-                !isWide && <Text dimColor>{middle}</Text>
+                !isWide && (
+                  <Text dimColor wrap="truncate-end">
+                    {middle}
+                  </Text>
+                )
               )}
             </Box>
             {hasProject && (
               <Box width={PROJECT}>
-                {project !== undefined && <Text dimColor>project {pctText(project)}</Text>}
+                {project !== undefined && (
+                  <Text dimColor wrap="truncate-end">
+                    project {pctText(project)}
+                  </Text>
+                )}
               </Box>
             )}
           </Box>
