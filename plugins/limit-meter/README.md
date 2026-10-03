@@ -7,9 +7,7 @@ A band above the Claude Code prompt that shows, live:
 - **Context**: the context window's fill, as `282k / 1M`
 - on **high**: the project's total and the other chats and threads working in the same repository
 
-```
-◔ 5-hour 11%  this chat 1% · 3h 5m    ◑ Weekly 67%  this chat 0% · 3h 35m    ◕ Fable 75% …   │   ◔ Context 28%  282k / 1M
-```
+![limit-meter on medium in the Claude desktop app: rings for the 5-hour, weekly and Fable limits, each with this chat's share and the time to reset, and the context window at the right](docs/desktop-medium.png)
 
 ## Install
 
@@ -30,13 +28,17 @@ Built against Claude Code **2.1.286**. It uses function hooks, which are early a
 
 | | |
 | --- | --- |
-| `small` | one row, small rings |
-| `medium` (default) | rings, this chat and the reset time |
-| `high` | large rings with the percent inside, project total and threads |
+| `small` | one row, small rings<br>![small](docs/desktop-small.png) |
+| `medium` (default) | rings, this chat and the reset time<br>![medium](docs/desktop-medium.png) |
+| `high` | large rings with the percent inside and the project's total; in a project with other chats, their shares appear in a row under the rings<br>![high](docs/desktop-high.png) |
 
 Switch with `/limit-meter small`, `/limit-meter medium` or `/limit-meter high` (remembered across sessions), or set **Band size** in the plugin's settings.
 
 The desktop app draws rings; the terminal shows the same figures as an aligned table, sized to the window's width.
+
+### In the terminal
+
+One row per limit with a bar, the percent, the time to reset and this chat's share, and a row for the context window. Under 60 columns the bars and reset times give way; when the table does not fit, or on `small`, the band is one line.
 
 ## How "this chat" is counted
 
@@ -50,7 +52,7 @@ It is an estimate:
 
 ## What it reads, writes and sends
 
-- **Network:** about once a minute, shared by every open chat, one request to `https://api.anthropic.com/api/oauth/usage`, the endpoint Claude Code's own usage view reads. It goes through Claude Code with your session's credential; the plugin never sees the token. This endpoint is not a documented public API and may change; if it fails, limit-meter keeps showing the last good reading for up to 10 minutes, then falls back to the 5-hour and weekly figures Claude Code already has (no per-model limit). The cause of the last failure (an HTTP status, never a response body) is written to `last-error.json`.
+- **Network:** about once a minute, shared by every open chat, one request to `https://api.anthropic.com/api/oauth/usage`, the endpoint Claude Code's own usage view reads. It goes through Claude Code with your session's credential; the plugin never sees the token. This endpoint is not a documented public API and may change; if it fails, limit-meter keeps showing the last good reading for up to 10 minutes (and when the endpoint answers 429, every open chat stops asking until the time it gives, or two to five minutes), then falls back to the 5-hour and weekly figures Claude Code already has (no per-model limit). The cause of the last failure (an HTTP status, never a response body) is written to `last-error.json`.
 - **Disk:** `~/.claude/limit-meter/` holds one small file per chat (the project path, the first 22 characters of its first prompt as a label, and its credited points), a shared `ledger.json` and a `reading.json` cache. For troubleshooting, `LIMIT_METER_DEBUG=1` makes it also write `events.log`: which event credited which limit. In the desktop app set it in `~/.claude/settings.json` as `"env": { "LIMIT_METER_DEBUG": "1" }`; in the terminal, in your shell.
 - Nothing else leaves your machine.
 

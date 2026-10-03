@@ -45,6 +45,9 @@ const POLL_MS = 60_000
 const SHARED_FRESH_MS = 25_000
 /** How long the last good reading stands in when the usage endpoint fails. */
 const CACHED_MAX_MS = 10 * 60_000
+/** After a 429 every chat waits: what the server asks, else two minutes, doubling to five. */
+const BACKOFF_MS = 2 * 60_000
+const BACKOFF_MAX_MS = 5 * 60_000
 /** Idle for this long, a chat polls the limits only every fifth minute. */
 const IDLE_MS = 10 * 60_000
 const IDLE_POLL_EVERY = 5
@@ -188,6 +191,29 @@ const noteFailure = async ($: $, cause: string) => {
   }).catch(() => undefined)
 }
 
+type Backoff = { until: number; ms: number }
+
+/** Shared by every open chat: the usage limit is the account's, not one session's. */
+const startBackoff = async ($: $, asked?: number) => {
+  const c = await context($)
+  const now = await $.clock.now()
+  const held = await readJson<Backoff>($, `${c.dir}/backoff.json`)
+  const ms =
+    asked !== undefined && asked > 0
+      ? asked
+      : held && held.until > now
+        ? Math.min(BACKOFF_MAX_MS, held.ms * 2)
+        : BACKOFF_MS
+  await writeJson($, `${c.dir}/backoff.json`, { until: now + ms, ms })
+}
+
+const isBackingOff = async ($: $) => {
+  const c = await context($)
+  const held = await readJson<Backoff>($, `${c.dir}/backoff.json`)
+
+  return held !== undefined && held.until > (await $.clock.now())
+}
+
 const fetchOauth = async ($: $): Promise<Win[] | null> => {
   const auth = await $.session.authorize()
   if (!auth || auth.kind !== 'bearer') {
@@ -199,7 +225,14 @@ const fetchOauth = async ($: $): Promise<Win[] | null> => {
     auth: auth.handle,
   })
   if (!res.ok) {
-    await noteFailure($, `http ${res.status}`)
+    const retryAfter = Number(res.headers['retry-after'])
+    await noteFailure(
+      $,
+      `http ${res.status}${Number.isFinite(retryAfter) ? `, retry-after ${retryAfter}s` : ''}`,
+    )
+    if (res.status === 429) {
+      await startBackoff($, Number.isFinite(retryAfter) ? retryAfter * 1000 : undefined)
+    }
     return null
   }
   const body = JSON.parse(res.text) as Record<string, unknown>
@@ -257,10 +290,13 @@ const readWindows = async ($: $, isFresh: boolean): Promise<Win[]> => {
   if (!isFresh && mem.lastFetch && now - mem.lastFetch.at < FETCH_GAP_MS) {
     return mem.lastFetch.wins
   }
-  const wins = await fetchOauth($).catch(async (err: unknown) => {
-    await noteFailure($, `threw ${err instanceof Error ? err.name : 'error'}`)
-    return null
-  })
+  // While the endpoint pushes back, no chat asks it: the cached reading stands in.
+  const wins = (await isBackingOff($))
+    ? null
+    : await fetchOauth($).catch(async (err: unknown) => {
+        await noteFailure($, `threw ${err instanceof Error ? err.name : 'error'}`)
+        return null
+      })
   if (wins) {
     mem.source = 'oauth'
     mem.lastFetch = { at: now, wins }

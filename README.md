@@ -1,5 +1,7 @@
 # nodworks — Claude Code plugins
 
+![limit-meter in the Claude desktop app](plugins/limit-meter/docs/desktop-medium.png)
+
 Plugins for [Claude Code](https://code.claude.com) by Nodworks DevLabs.
 
 ```
