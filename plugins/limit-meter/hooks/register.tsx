@@ -666,43 +666,114 @@ export const register: Register = (on, options) => {
       ? `${snap.projectName} · threads`
       : `${snap.projectName} · other chats`
 
-    // The terminal has no Svg: the same figures as text.
+    // The terminal has no Svg: a monospace table, sized to the width it has.
     if (e.surface === 'terminal') {
       const { Box, Text } = $.ui.resolve(e)
+      const columns = e.viewport?.columns ?? 80
+      const hasProject = size === 'high' && hasPeers
+      const peerRows = size === 'high' && showPeers ? peers : []
+      const tableRows =
+        rows.length + (ctx ? 1 : 0) + (peerRows.length > 0 ? peerRows.length + 1 : 0)
+      const isTable = size !== 'small' && columns >= 40 && e.props.maxRows >= tableRows
 
-      return (
-        <Box flexDirection="column">
-          <Box flexDirection="row" flexWrap="wrap" columnGap={size === 'small' ? 2 : 3}>
-            {rows.map(r => (
-              <Box key={r.kind} flexDirection="row" columnGap={1}>
-                <Text dimColor>{size === 'small' ? r.short : r.name}</Text>
+      if (!isTable) {
+        return (
+          <Text wrap="truncate-end">
+            {rows.map((r, i) => (
+              <Text key={r.kind}>
+                {i > 0 && <Text dimColor> · </Text>}
+                <Text dimColor>{r.short} </Text>
                 <Text bold color={textTone(r.pct)}>
                   {pctText(r.pct)}
                 </Text>
-                <Text color={BLUE}>
-                  {size === 'small' ? pctText(r.chat) : `this chat ${pctText(r.chat)}`}
-                </Text>
-                {size === 'high' && hasPeers && <Text>project {pctText(r.project)}</Text>}
-                {size !== 'small' && r.reset !== '' && <Text dimColor>{r.reset}</Text>}
-              </Box>
+                <Text color={BLUE}> {pctText(r.chat)}</Text>
+              </Text>
             ))}
-            {ctx && <Box flexGrow={1} />}
+            {ctx && <Text dimColor> │ ctx </Text>}
             {ctx && (
-              <Box flexDirection="row" columnGap={1}>
-                <Text dimColor>│</Text>
-                <Text dimColor>{size === 'small' ? 'ctx' : 'Context'}</Text>
-                <Text bold color={textTone(ctx.pct)}>
-                  {pctText(ctx.pct)}
+              <Text bold color={textTone(ctx.pct)}>
+                {pctText(ctx.pct)}
+              </Text>
+            )}
+          </Text>
+        )
+      }
+
+      // Cells per column; the bar takes what is left, minus room for the [-] control.
+      const LABEL = 9
+      const PCT = 5
+      const MIDDLE = 12
+      const CHAT = 17
+      const PROJECT = 15
+      const isWide = columns >= 60
+      const fixed =
+        LABEL + PCT + (isWide ? MIDDLE : 0) + CHAT + (hasProject ? PROJECT : 0) + 8
+      const bar = isWide ? Math.max(8, Math.min(28, columns - fixed)) : 0
+
+      const line = (
+        id: string,
+        label: string,
+        pct: number,
+        middle: string,
+        chat?: number,
+        project?: number,
+      ) => {
+        const filled = Math.min(bar, Math.round((bar * pct) / 100))
+
+        return (
+          <Box key={id} flexDirection="row">
+            <Box width={LABEL}>
+              <Text dimColor>{label}</Text>
+            </Box>
+            {bar > 0 && (
+              <Box width={bar + 1}>
+                <Text>
+                  <Text color={tone(pct)}>{'━'.repeat(filled)}</Text>
+                  <Text dimColor>{'─'.repeat(bar - filled)}</Text>
                 </Text>
-                <Text dimColor>{ctx.text}</Text>
+              </Box>
+            )}
+            <Box width={PCT} justifyContent="flex-end">
+              <Text bold color={textTone(pct)}>
+                {pctText(pct)}
+              </Text>
+            </Box>
+            {isWide && (
+              <Box width={MIDDLE} paddingLeft={3}>
+                <Text dimColor>{middle}</Text>
+              </Box>
+            )}
+            <Box width={CHAT} paddingLeft={3}>
+              {chat !== undefined ? (
+                <Text color={BLUE}>this chat {pctText(chat)}</Text>
+              ) : (
+                !isWide && <Text dimColor>{middle}</Text>
+              )}
+            </Box>
+            {hasProject && (
+              <Box width={PROJECT}>
+                {project !== undefined && <Text dimColor>project {pctText(project)}</Text>}
               </Box>
             )}
           </Box>
-          {size === 'high' && showPeers && (
+        )
+      }
+
+      return (
+        <Box flexDirection="column">
+          {rows.map(r => line(r.kind, r.name, r.pct, r.reset, r.chat, r.project))}
+          {ctx && line('context', 'Context', ctx.pct, ctx.text)}
+          {peerRows.length > 0 && (
             <Text dimColor wrap="truncate-end">
-              {peerTitle}: {peers.map(p => peerLine(p, rows)).join('   ')}
+              {peerTitle}
             </Text>
           )}
+          {peerRows.map(p => (
+            <Text key={p.sid} dimColor wrap="truncate-end">
+              {'  '}
+              {peerLine(p, rows)}
+            </Text>
+          ))}
         </Box>
       )
     }
