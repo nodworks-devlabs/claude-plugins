@@ -1,0 +1,17 @@
+{
+  "name": "nodworks",
+  "owner": {
+    "name": "Nodworks DevLabs",
+    "url": "https://github.com/nodworks-devlabs"
+  },
+  "description": "Claude Code plugins by Nodworks DevLabs",
+  "plugins": [
+    {
+      "name": "limit-meter",
+      "source": "./plugins/limit-meter",
+      "description": "Rings above the prompt for your 5-hour, weekly and per-model limits and the context window, with what this chat, its project and its threads used",
+      "version": "0.3.0",
+      "category": "productivity"
+    }
+  ]
+}

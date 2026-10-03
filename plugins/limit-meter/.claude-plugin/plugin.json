@@ -1,0 +1,39 @@
+{
+  "name": "limit-meter",
+  "version": "0.3.0",
+  "description": "Rings above the prompt for your 5-hour, weekly and per-model limits and the context window, with what this chat, its project and its threads used",
+  "author": {
+    "name": "Nodworks DevLabs",
+    "url": "https://github.com/nodworks-devlabs"
+  },
+  "homepage": "https://github.com/nodworks-devlabs/claude-plugins/tree/main/plugins/limit-meter",
+  "repository": "https://github.com/nodworks-devlabs/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "usage",
+    "rate-limits",
+    "context",
+    "status",
+    "mod"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "density": {
+      "type": "string",
+      "title": "Band size",
+      "description": "small: one row · medium: rings with this chat and reset time · high: large rings with project and threads",
+      "options": [
+        "small",
+        "medium",
+        "high"
+      ],
+      "default": "medium"
+    },
+    "debug": {
+      "type": "boolean",
+      "title": "Debug log",
+      "description": "Write ~/.claude/limit-meter/events.log: which event credited which window",
+      "default": false
+    }
+  }
+}
